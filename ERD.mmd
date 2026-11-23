@@ -1,0 +1,64 @@
+erDiagram
+    USER ||--o{ BOOKING : creates
+    BUS ||--o{ TRIP : assigned_to
+    ROUTE ||--o{ TRIP : defines
+    TRIP ||--o{ TRIP_SEAT : provides
+    TRIP_SEAT ||--o| BOOKING : reserved_by
+    BOOKING ||--o{ PAYMENT : paid_through
+
+    USER {
+      uuid id PK
+      string full_name
+      string email UK
+      string phone UK
+      string password_hash
+      enum role
+    }
+    BUS {
+      uuid id PK
+      string registration_number UK
+      string name
+      string bus_type
+      int total_seats
+      enum status
+    }
+    ROUTE {
+      uuid id PK
+      string departure_city
+      string destination_city
+      decimal distance_km
+      int estimated_minutes
+    }
+    TRIP {
+      uuid id PK
+      uuid bus_id FK
+      uuid route_id FK
+      datetime departure_at
+      datetime arrival_at
+      decimal fare
+      enum status
+    }
+    TRIP_SEAT {
+      uuid id PK
+      uuid trip_id FK
+      string seat_number
+      enum status
+      datetime hold_expires_at
+    }
+    BOOKING {
+      uuid id PK
+      string booking_code UK
+      uuid user_id FK
+      uuid trip_seat_id FK
+      string passenger_name
+      decimal amount
+      enum status
+    }
+    PAYMENT {
+      uuid id PK
+      uuid booking_id FK
+      decimal amount
+      enum method
+      enum status
+      string transaction_ref UK
+    }
