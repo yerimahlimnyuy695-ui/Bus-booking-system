@@ -1,0 +1,27 @@
+{
+  "name": "bus-booking-database",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PostgreSQL and Prisma database design for a bus booking platform",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "prisma studio",
+    "db:validate": "prisma validate"
+  },
+  "dependencies": {
+    "@prisma/client": "7.10.1",
+    "@prisma/adapter-pg": "7.10.1",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "prisma": "7.10.1"
+  },
+  "overrides": {
+    "effect": "3.22.5"
+  }
+}
