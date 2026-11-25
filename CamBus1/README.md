@@ -1,23 +1,16 @@
 # CamBus — Bus Booking Starter
 
-A React + Vite + Tailwind frontend and Express + Prisma Client backend for a student bus-booking project. The frontend talks only to the REST API. The backend uses the Prisma Client generated from your teammate's schema; **this project does not include or modify `schema.prisma`**.
+A React + Vite + Tailwind frontend and Express + Prisma Client backend for a student bus-booking project. The frontend talks only to the REST API. Local development uses the SQLite Prisma schema in `backend/Prisma/schema.prisma`; the public deployment uses the equivalent PostgreSQL schema in `backend/Prisma/schema.postgres.prisma`.
 
 ## Requirements
 
 - Node.js 18+
-- PostgreSQL running locally or remotely
-- Your teammate's Prisma schema and generated Prisma Client
-- Two terminals
+- SQLite database configured in `backend/.env`
+- Prisma Client generated from the checked-in schema
 
-## 1. Agree on the Prisma contract
+## 1. Use the checked-in Prisma contract
 
-The backend expects these Prisma model/delegate names and fields:
-
-- `User`: `id`, `name`, `email` (unique), `password`, relation `bookings`
-- `Bus`: `id`, `company`, `fromCity`, `toCity`, `departureTime`, `price`, `totalSeats`, relation `bookings`
-- `Booking`: `id`, `userId`, `busId`, `seats` (`String[]`), `passengerName`, `phone`, `totalPrice`, `status`, `bookingRef` (unique)
-
-The `Booking` model must also expose a `user` relation because the admin bookings endpoint includes the user's name/email. Use the exact relation field names `user`, `bus`, and `bookings` or adjust the includes to match the team's agreed contract. IDs may be strings or another scalar supported by Prisma; the API passes IDs through unchanged.
+The schema defines the `User`, `Bus`, and `Booking` models used by the backend. Model IDs are integers. `Booking.seats` is stored as a JSON-encoded string in SQLite; booking API responses expose it as an array of seat IDs.
 
 ## 2. Configure and run the backend
 
@@ -25,11 +18,10 @@ The `Booking` model must also expose a `user` relation because the admin booking
 cd backend
 npm install
 cp .env.example .env
+npx prisma generate --schema Prisma/schema.prisma
 ```
 
-Edit `.env` and set the PostgreSQL `DATABASE_URL`, a long random `JWT_SECRET`, and `ADMIN_EMAILS`. The admin allowlist is a comma-separated list of account email addresses. The database teammate owns schema and migrations; coordinate with them to apply migrations and generate the client from the shared schema before starting this API.
-
-If the teammate's Prisma project is in a separate directory, make sure this backend resolves the generated `@prisma/client` from the correct workspace/package setup. In a shared repository, the simplest approach is usually to install backend dependencies and run Prisma generation from the directory containing the teammate's schema, or configure the Prisma schema path in the team's package scripts.
+Edit `.env` and set `DATABASE_URL` for SQLite, a long random `JWT_SECRET`, and `ADMIN_EMAILS`. The admin allowlist is a comma-separated list of account email addresses. Generate/update the local database from the checked-in schema with `npx prisma db push --schema Prisma/schema.prisma`. For a separately hosted frontend, set `FRONTEND_ORIGIN` to its origin; the default is `http://localhost:5173`.
 
 Seed the six demo departures:
 
@@ -37,17 +29,16 @@ Seed the six demo departures:
 npm run seed
 ```
 
-Start the API:
+For backend-only debugging, run:
 
 ```bash
 npm run dev
 ```
 
-API runs at `http://localhost:5000`. Health check: `http://localhost:5000/api/health`.
+The backend reuses an existing healthy API if one is already running between ports 5000 and 5100. Otherwise, it uses the configured `PORT` if free or selects another available port in that range. Health checks are available at `http://localhost:<port>/api/health`.
+For normal local development, start both services using the frontend command in the next section.
 
-## 3. Configure and run the frontend
-
-In another terminal:
+## 3. Configure and run the frontend and API
 
 ```bash
 cd frontend
@@ -55,7 +46,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+`npm run dev` starts the backend API and Vite frontend. It reuses a healthy API already running between ports 5000 and 5100, or selects another available port in that range if needed. Open the Vite URL shown in the terminal; frontend API requests use Vite's `/api` proxy. For a separately hosted frontend, set `VITE_API_URL` to the backend API base URL (for example, `https://api.example.com/api`).
 
 ## Demo admin account
 
@@ -116,3 +107,15 @@ There is intentionally no `role` field added to the agreed User model.
 
 ## Downloadable tickets
 Confirmed bookings on **My Bookings** now have a **Download ticket (PDF)** action. It creates a PDF locally in the browser using jsPDF. Cancelled bookings cannot be downloaded as valid boarding tickets.
+
+## Public team test deployment
+
+The Render Blueprint at the repository root deploys the frontend and API together as one web service, with Neon PostgreSQL for shared accounts and bookings. Local development continues to use SQLite.
+
+1. In Neon, create a PostgreSQL project and copy both its pooled connection string and direct connection string.
+2. In Render, create a Blueprint from this repository and select `render.yaml`. The service root directory is `CamBus1`.
+3. When prompted, set `DATABASE_URL` to Neon's pooled connection string, `DIRECT_URL` to its direct connection string, and `ADMIN_EMAILS` to the email address that should have admin access. Render generates `JWT_SECRET`.
+4. Wait for the first deployment and its seed hook to finish. Render's service URL is the public site URL to share.
+5. Register an account using the email in `ADMIN_EMAILS`, then log in and open `/admin`. Teammates can register their own accounts; all accounts and bookings use the same hosted database.
+
+Do not commit either database connection string or any other secrets. The free Render web service can sleep while idle, so its first request after a pause may take longer. The hosted database starts empty; accounts and bookings in a local SQLite database are not transferred.

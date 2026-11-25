@@ -11,14 +11,14 @@ export default function SeatLayout({ totalSeats = 40, takenSeats = [], selectedS
     onChange(selected.has(seat) ? selectedSeats.filter((item) => item !== seat) : [...selectedSeats, seat]);
   }
 
-  return <div className="rounded-2xl border bg-white p-5">
+  return <div className="dashboard-panel p-5 md:p-6">
     <div className="mx-auto mb-5 max-w-xs rounded-t-[3rem] border-2 border-slate-300 bg-slate-50 px-5 py-3 text-center text-xs font-bold uppercase tracking-widest text-slate-500">Front / Driver</div>
     <div className="mx-auto grid max-w-sm grid-cols-[1fr_1fr_20px_1fr_1fr] gap-2">
       {seatNames.map((seat) => {
         const isTaken = taken.has(seat), isSelected = selected.has(seat);
         const style = isTaken ? 'bg-red-500 text-white cursor-not-allowed' : isSelected ? 'bg-blue-600 text-white' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200';
         return <button key={seat} type="button" disabled={isTaken} onClick={() => toggle(seat)}
-          className={`${style} rounded-lg py-3 text-xs font-bold transition ${seat[0] === 'A' || seat[0] === 'C' ? 'col-start-1' : ''}`}
+          className={`seat-button ${style} rounded-lg py-3 text-xs font-bold ${seat[0] === 'A' || seat[0] === 'C' ? 'col-start-1' : ''}`}
           style={{ gridColumn: seat[0] === 'A' ? 1 : seat[0] === 'B' ? 2 : seat[0] === 'C' ? 4 : 5, gridRow: Number(seat.slice(1)) }}>
           {seat}
         </button>;
