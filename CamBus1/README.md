@@ -124,10 +124,8 @@ Do not commit either database connection string or any other secrets. The free R
 
 The Vercel project must use `CamBus1` as its Root Directory. The root `vercel.json` builds the Vite frontend and serves the Express API through a Vercel Node.js Function at `/api/*`; frontend requests use the same-origin `/api` path.
 
-Configure these Vercel Production environment variables before deploying:
+The Vercel Neon integration provides `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct). The Vercel build maps the latter to Prisma's `DIRECT_URL` for schema setup. Configure `JWT_SECRET` before deploying:
 
-- `DATABASE_URL`: pooled PostgreSQL connection string.
-- `DIRECT_URL`: direct PostgreSQL connection string.
 - `JWT_SECRET`: a long, random signing secret.
 - `ADMIN_EMAILS`: optional comma-separated admin email allowlist.
 

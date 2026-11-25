@@ -8,6 +8,6 @@
   ],
   "scripts": {
     "build": "npm run prisma:generate --workspace=bus-booking-backend && npm run build --workspace=bus-booking-frontend",
-    "vercel-build": "npm run prisma:generate --workspace=bus-booking-backend && npm run prisma:push --workspace=bus-booking-backend && npm run build --workspace=bus-booking-frontend"
+    "vercel-build": "npm run prisma:generate --workspace=bus-booking-backend && DIRECT_URL=\"$DATABASE_URL_UNPOOLED\" npm run prisma:push --workspace=bus-booking-backend && npm run build --workspace=bus-booking-frontend"
   }
 }
