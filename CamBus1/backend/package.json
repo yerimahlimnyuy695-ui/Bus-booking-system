@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "nodemon scripts/dev.js",
     "start": "node src/server.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "prisma:generate": "prisma generate --schema Prisma/schema.postgres.prisma",
+    "prisma:push": "prisma db push --schema Prisma/schema.postgres.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

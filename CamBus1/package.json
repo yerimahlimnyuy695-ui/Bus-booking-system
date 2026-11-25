@@ -1,0 +1,13 @@
+{
+  "name": "cambus-app",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run prisma:generate --workspace=bus-booking-backend && npm run build --workspace=bus-booking-frontend",
+    "vercel-build": "npm run prisma:generate --workspace=bus-booking-backend && npm run prisma:push --workspace=bus-booking-backend && npm run build --workspace=bus-booking-frontend"
+  }
+}

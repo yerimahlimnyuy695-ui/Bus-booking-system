@@ -119,3 +119,16 @@ The Render Blueprint at the repository root deploys the frontend and API togethe
 5. Register an account using the email in `ADMIN_EMAILS`, then log in and open `/admin`. Teammates can register their own accounts; all accounts and bookings use the same hosted database.
 
 Do not commit either database connection string or any other secrets. The free Render web service can sleep while idle, so its first request after a pause may take longer. The hosted database starts empty; accounts and bookings in a local SQLite database are not transferred.
+
+## Vercel deployment
+
+The Vercel project must use `CamBus1` as its Root Directory. The root `vercel.json` builds the Vite frontend and serves the Express API through a Vercel Node.js Function at `/api/*`; frontend requests use the same-origin `/api` path.
+
+Configure these Vercel Production environment variables before deploying:
+
+- `DATABASE_URL`: pooled PostgreSQL connection string.
+- `DIRECT_URL`: direct PostgreSQL connection string.
+- `JWT_SECRET`: a long, random signing secret.
+- `ADMIN_EMAILS`: optional comma-separated admin email allowlist.
+
+The Vercel build generates Prisma Client and applies the PostgreSQL schema with `prisma db push`; use a new/empty database for the first deployment. Never commit or share the connection strings or signing secret. After adding or changing environment variables, redeploy the project.
