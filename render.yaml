@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: cambus-test
+    runtime: node
+    rootDir: CamBus1
+    plan: free
+    region: frankfurt
+    buildCommand: cd backend && npm ci --include=dev && npx prisma generate --schema Prisma/schema.postgres.prisma && npx prisma db push --schema Prisma/schema.postgres.prisma && cd ../frontend && npm ci --include=dev && npm run build
+    startCommand: cd backend && npm start
+    initialDeployHook: cd backend && npm run seed
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true

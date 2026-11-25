@@ -1,118 +1,127 @@
-# CamBus — Bus Booking Starter
+# Bus Booking System — Database Package
 
-A React + Vite + Tailwind frontend and Express + Prisma Client backend for a student bus-booking project. The frontend talks only to the REST API. The backend uses the Prisma Client generated from your teammate's schema; **this project does not include or modify `schema.prisma`**.
+Database design assigned in the team task sheet: **User, Bus, Route, Trip, Booking and Payment**, implemented with PostgreSQL and Prisma ORM.
+
+This package also includes `TripSeat`. It is a necessary inventory table that represents each physical seat for each scheduled trip and makes the no-double-booking rule enforceable at database level.
+
+## Stack
+
+- PostgreSQL
+- Prisma ORM / Prisma Client
+- Node.js seed script
+- Mermaid ERD
+
+## Data model overview
+
+- `User`: passenger and administrator accounts (`PASSENGER`, `ADMIN`).
+- `Bus`: vehicle details and seat capacity.
+- `Route`: departure and destination cities.
+- `Trip`: a scheduled journey using one bus and one route.
+- `TripSeat`: one seat inventory record per seat per trip.
+- `Booking`: one passenger reservation for one `TripSeat`.
+- `Payment`: payment attempts/transactions for a booking.
+
+## How duplicate seat booking is prevented
+
+Two database constraints work together:
+
+1. `TripSeat @@unique([tripId, seatNumber])` guarantees only one inventory row for a given seat on a given trip.
+2. The initial PostgreSQL migration creates a **partial unique index** on `bookings.trip_seat_id` for rows whose status is `PENDING` or `CONFIRMED`. This guarantees at most one active booking per trip-seat while allowing cancelled/expired booking history to remain.
+
+Prisma schema syntax does not currently express PostgreSQL partial unique indexes directly, so the partial unique index is intentionally defined in the checked-in SQL migration. Keep that SQL migration when deploying; do not replace it with `prisma db push` as the production schema deployment method.
+
+The reservation example in `src/booking/seat-reservation.example.js` also uses a conditional `updateMany` inside a database transaction. Only one concurrent request can change a seat from `AVAILABLE` to `HELD`; another request receives an unavailable-seat error.
+
+A seat can be used again on a different trip because the inventory unique key includes `tripId`. It can also be resold on the same trip after the previous booking is cancelled or expired and the seat is returned to `AVAILABLE`.
+
+### Cancellation / expiry rule
+
+Do not delete a booking to release its seat. In one database transaction:
+- mark the booking `CANCELLED` or `EXPIRED`;
+- update the associated `TripSeat` to `AVAILABLE`;
+- clear `holdExpiresAt`.
+
+Because the partial unique index only covers `PENDING` and `CONFIRMED`, the seat can then be assigned to a new booking while the old booking remains as history.
+
+For successful payment, verify the provider webhook/server-to-server transaction, then in a transaction:
+- mark the booking `CONFIRMED`;
+- change the `TripSeat` from `HELD` to `BOOKED`;
+- mark the payment `SUCCESS` and record `paidAt`.
+
+Never confirm a booking based only on a browser redirect or frontend message.
 
 ## Requirements
 
-- Node.js 18+
-- PostgreSQL running locally or remotely
-- Your teammate's Prisma schema and generated Prisma Clientcd
-- Two terminals
+- Node.js 20.19+
+- PostgreSQL 14+
+- npm
 
-## 1. Agree on the Prisma contract
+## Setup
 
-The backend expects these Prisma model/delegate names and fields:
+1. Create a PostgreSQL database, for example `bus_booking`.
+2. Copy `.env.example` to `.env`.
+3. Put your PostgreSQL connection string in `DATABASE_URL`.
+4. Install dependencies:
 
-- `User`: `id`, `name`, `email` (unique), `password`, relation `bookings`
-- `Bus`: `id`, `company`, `fromCity`, `toCity`, `departureTime`, `price`, `totalSeats`, relation `bookings`
-- `Booking`: `id`, `userId`, `busId`, `seats` (`String[]`), `passengerName`, `phone`, `totalPrice`, `status`, `bookingRef` (unique)
+   ```bash
+   npm install
+   ```
 
-The `Booking` model must also expose a `user` relation because the admin bookings endpoint includes the user's name/email. Use the exact relation field names `user`, `bus`, and `bookings` or adjust the includes to match the team's agreed contract. IDs may be strings or another scalar supported by Prisma; the API passes IDs through unchanged.
+5. Generate Prisma Client:
 
-## 2. Configure and run the backend
+   ```bash
+   npm run db:generate
+   ```
 
-```bash
-cd backend
-npm install
-cp .env.example .env
-```
+6. Apply the checked-in initial migration:
 
-Edit `.env` and set the PostgreSQL `DATABASE_URL`, a long random `JWT_SECRET`, and `ADMIN_EMAILS`. The admin allowlist is a comma-separated list of account email addresses. The database teammate owns schema and migrations; coordinate with them to apply migrations and generate the client from the shared schema before starting this API.
+   ```bash
+   npm run db:migrate:deploy
+   ```
 
-If the teammate's Prisma project is in a separate directory, make sure this backend resolves the generated `@prisma/client` from the correct workspace/package setup. In a shared repository, the simplest approach is usually to install backend dependencies and run Prisma generation from the directory containing the teammate's schema, or configure the Prisma schema path in the team's package scripts.
+   For local schema development, you can instead use:
 
-Seed the six demo departures:
+   ```bash
+   npm run db:migrate:dev
+   ```
 
-```bash
-npm run seed
-```
+7. Insert demo records:
 
-Start the API:
+   ```bash
+   npm run db:seed
+   ```
 
-```bash
-npm run dev
-```
+8. Open Prisma Studio:
 
-API runs at `http://localhost:5000`. Health check: `http://localhost:5000/api/health`.
+   ```bash
+   npm run db:studio
+   ```
 
-## 3. Configure and run the frontend
+## Demo seed accounts
 
-In another terminal:
+Both accounts use the demo password `ChangeMe123!`:
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+- Admin: `admin@busbooking.test`
+- Passenger: `passenger@example.com`
 
-Open `http://localhost:5173`.
+Change these credentials immediately and never use demo credentials in production.
 
-## Demo admin account
+The seed creates a demo bus, Yaounde–Douala route, a trip two days from the date the seed runs, 30 trip-seat rows, one confirmed booking and one successful demo payment. It is safe to run repeatedly for the same generated trip.
 
-1. Add the email you want to use to `ADMIN_EMAILS` in `backend/.env`.
-2. Register that email through the app.
-3. Log in with it. The backend checks the JWT email against the allowlist for admin endpoints.
+## Useful commands
 
-There is intentionally no `role` field added to the agreed User model.
+- `npm run db:generate` — generate Prisma Client.
+- `npm run db:migrate:dev` — create/apply a development migration.
+- `npm run db:migrate:deploy` — apply committed migrations in production/staging.
+- `npm run db:seed` — seed demo data.
+- `npm run db:studio` — inspect records in Prisma Studio.
+- `npm run db:validate` — validate the Prisma schema.
 
-## API routes
+## Important production notes
 
-| Method | Endpoint | Access | Purpose |
-|---|---|---|---|
-| POST | `/api/auth/register` | Public | Register |
-| POST | `/api/auth/login` | Public | Login |
-| GET | `/api/buses/search?from=Yaoundé&to=Douala` | Public | Search |
-| GET | `/api/buses/:id` | Public | Bus and taken seats |
-| POST | `/api/buses` | Admin | Add bus |
-| POST | `/api/bookings` | User | Create booking |
-| GET | `/api/bookings/my` | User | Current user's bookings |
-| DELETE | `/api/bookings/:id` | Owner | Cancel booking |
-| GET | `/api/admin/stats` | Admin | Dashboard statistics |
-| GET | `/api/admin/bookings` | Admin | All bookings |
-| GET | `/api/admin/buses` | Admin | All buses |
-| DELETE | `/api/admin/buses/:id` | Admin | Delete bus with no bookings |
-| DELETE | `/api/admin/bookings/:id` | Admin | Delete booking |
-
-## Important implementation notes
-
-- Seat IDs in the starter seat picker are `A1`–`A10`, `B1`–`B10`, `C1`–`C10`, and `D1`–`D10`. The picker visually places A/B on one side and C/D on the other, with an aisle between.
-- Search date is optional. The seed creates departures for the next calendar day at local server time.
-- Admin access uses `ADMIN_EMAILS` because the agreed User contract has no role field. Do not expose the admin email allowlist in frontend code.
-- Booking creation checks confirmed bookings inside a Prisma transaction. For production-grade concurrency safety, coordinate a database-level uniqueness/locking strategy with the database teammate; a read-then-create check alone can still race under simultaneous requests.
-- Deleting a bus with any booking is blocked to avoid foreign-key failures and loss of booking history. Admin can delete individual bookings using the admin endpoint.
-- Checkout is simulated. No payment provider or real payment is integrated.
-- Add production validation, rate limiting, secure deployment settings, and tests before using this beyond a classroom demo.
-
-
-## Architecture
-
-### Backend (MVC-style)
-- `backend/src/models/` is the Prisma-backed model access layer (`UserModel`, `BusModel`, `BookingModel`). It uses the schema supplied by the database teammate; this project does not define or alter `schema.prisma`.
-- `backend/src/controllers/` contains request handling and application logic, separated by feature.
-- `backend/src/routes/` contains the route entry points mounted by `server.js`.
-- `backend/src/middleware/` contains authentication and admin authorization middleware.
-
-### Frontend (Atomic Design)
-- `frontend/src/components/atoms/`: small UI primitives such as buttons and labels.
-- `frontend/src/components/molecules/`: combinations of atoms, such as labeled form fields.
-- `frontend/src/components/organisms/`: larger reusable page sections.
-- `frontend/src/components/templates/`: page-level layout wrappers.
-- `frontend/src/pages/`: route-level screens.
-
-### Main routes
-- `/` home/search; `/results` search results; `/buses/:id` bus/seat selection.
-- `/login` and `/register` authentication screen (also available at `/auth`).
-- `/my-bookings` passenger bookings; `/admin` administration.
-
-## Downloadable tickets
-Confirmed bookings on **My Bookings** now have a **Download ticket (PDF)** action. It creates a PDF locally in the browser using jsPDF. Cancelled bookings cannot be downloaded as valid boarding tickets.
+- Store money as `Decimal`, not JavaScript floating-point numbers.
+- Store timestamps as timezone-aware PostgreSQL `TIMESTAMPTZ`; use UTC in the backend.
+- Do not trust payment status supplied by the browser. Verify payment provider callbacks.
+- Add rate limiting, password reset, audit logging, backups and access control in the application.
+- A bus must not be assigned to overlapping trips. Enforce this in the trip scheduling service, and consider a PostgreSQL exclusion constraint if concurrent schedule creation is expected.
+- The included database migration is a starter migration. Review it with the team before production deployment.
